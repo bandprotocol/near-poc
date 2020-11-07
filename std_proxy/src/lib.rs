@@ -79,64 +79,116 @@ mod tests {
     use near_sdk::MockedBlockchain;
     use near_sdk::{testing_env, VMContext};
 
-    // // part of writing unit tests is setting up a mock context
-    // // in this example, this is only needed for env::log in the contract
-    // // this is also a useful list to peek at when wondering what's available in env::*
-    // fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
-    //     VMContext {
-    //         current_account_id: "alice.testnet".to_string(),
-    //         signer_account_id: "robert.testnet".to_string(),
-    //         signer_account_pk: vec![0, 1, 2],
-    //         predecessor_account_id: "jane.testnet".to_string(),
-    //         input,
-    //         block_index: 0,
-    //         block_timestamp: 0,
-    //         account_balance: 0,
-    //         account_locked_balance: 0,
-    //         storage_usage: 0,
-    //         attached_deposit: 0,
-    //         prepaid_gas: 10u64.pow(18),
-    //         random_seed: vec![0, 1, 2],
-    //         is_view,
-    //         output_data_receivers: vec![],
-    //         epoch_height: 19,
-    //     }
-    // }
+    fn alice() -> AccountId {
+        "alice.near".to_string()
+    }
 
-    // // mark individual unit tests with #[test] for them to be registered and fired
-    // #[test]
-    // fn increment() {
-    //     // set up the mock context into the testing environment
-    //     let context = get_context(vec![], false);
-    //     testing_env!(context);
-    //     // instantiate a contract variable with the counter at zero
-    //     let mut contract = Counter { val: 0 };
-    //     contract.increment();
-    //     println!("Value after increment: {}", contract.get_num());
-    //     // confirm that we received 1 when calling get_num
-    //     assert_eq!(1, contract.get_num());
-    // }
+    fn bob() -> AccountId {
+        "bob.near".to_string()
+    }
 
-    // #[test]
-    // fn decrement() {
-    //     let context = get_context(vec![], false);
-    //     testing_env!(context);
-    //     let mut contract = Counter { val: 0 };
-    //     contract.decrement();
-    //     println!("Value after decrement: {}", contract.get_num());
-    //     // confirm that we received -1 when calling get_num
-    //     assert_eq!(-1, contract.get_num());
-    // }
+    fn carol() -> AccountId {
+        "carol.near".to_string()
+    }
 
-    // #[test]
-    // fn increment_and_reset() {
-    //     let context = get_context(vec![], false);
-    //     testing_env!(context);
-    //     let mut contract = Counter { val: 0 };
-    //     contract.increment();
-    //     contract.reset();
-    //     println!("Value after reset: {}", contract.get_num());
-    //     // confirm that we received -1 when calling get_num
-    //     assert_eq!(0, contract.get_num());
-    // }
+    fn std_basic() -> AccountId {
+        "std_basic.near".to_string()
+    }
+
+    fn get_context() -> VMContext {
+        VMContext {
+            current_account_id: alice(),
+            signer_account_id: bob(),
+            signer_account_pk: vec![0, 1, 2],
+            predecessor_account_id: carol(),
+            input: vec![],
+            block_index: 0,
+            block_timestamp: 0,
+            account_balance: 0,
+            account_locked_balance: 0,
+            storage_usage: 0,
+            attached_deposit: 0,
+            prepaid_gas: 10u64.pow(18),
+            random_seed: vec![0, 1, 2],
+            is_view: false,
+            output_data_receivers: vec![],
+            epoch_height: 0,
+        }
+    }
+
+    #[test]
+    fn test_create_new_contract() {
+        let context = get_context();
+        testing_env!(context);
+        let contract = StdProxy::new(std_basic());
+
+        // check state
+        assert_eq!(bob(), contract.owner);
+        assert_eq!(std_basic(), contract.ref_);
+
+        // check owner using view function
+        assert_eq!(std_basic(), contract.get_ref());
+    }
+
+    #[test]
+    fn test_transfer_ownership() {
+        let context = get_context();
+        testing_env!(context);
+        let mut contract = StdProxy::new(std_basic());
+
+        // check owner using view function
+        assert_eq!(bob(), contract.get_owner());
+        // transfer the ownership bob -> alice
+        contract.transfer_ownership(alice());
+        // check owner using view function
+        assert_eq!(alice(), contract.get_owner());
+    }
+
+    #[test]
+    #[should_panic(expected = "NOT_AN_OWNER")]
+    fn test_transfer_ownership_fail() {
+        let context = get_context();
+        testing_env!(context);
+        let mut contract = StdProxy::new(std_basic());
+
+        // check owner using view function
+        assert_eq!(bob(), contract.get_owner());
+        // transfer the ownership bob -> alice
+        contract.transfer_ownership(alice());
+        // check owner using view function
+        assert_eq!(alice(), contract.get_owner());
+
+        // transfer the ownership alice -> bob
+        // should fail because bob is not an owner anymore
+        contract.transfer_ownership(alice());
+    }
+
+    #[test]
+    fn test_set_ref() {
+        let context = get_context();
+        testing_env!(context);
+        let mut contract = StdProxy::new(std_basic());
+
+        assert_eq!(std_basic(), contract.get_ref());
+
+        contract.set_ref(alice());
+
+        assert_eq!(alice(), contract.get_ref());
+    }
+
+    #[test]
+    #[should_panic(expected = "NOT_AN_OWNER")]
+    fn test_set_ref_fail() {
+        let context = get_context();
+        testing_env!(context);
+        let mut contract = StdProxy::new(std_basic());
+
+        contract.transfer_ownership(carol());
+
+        assert_eq!(std_basic(), contract.get_ref());
+
+        contract.set_ref(alice());
+
+        assert_eq!(alice(), contract.get_ref());
+    }
 }
