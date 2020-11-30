@@ -37,7 +37,7 @@ impl StdReferenceBasic {
     }
 
     pub fn transfer_ownership(&mut self, new_owner: AccountId) {
-        assert!(env::signer_account_id() == self.get_owner(), "NOT_AN_OWNER");
+        assert!(env::predecessor_account_id() == self.get_owner(), "NOT_AN_OWNER");
         env::log(format!("transfer ownership from {} to {}", self.owner, new_owner).as_bytes());
         self.owner = new_owner;
     }
@@ -81,7 +81,7 @@ impl StdReferenceBasic {
         resolve_times: Vec<u64>,
         request_ids: Vec<u64>,
     ) {
-        assert!(env::signer_account_id() == self.get_owner(), "NOT_AN_OWNER");
+        assert!(env::predecessor_account_id() == self.get_owner(), "NOT_AN_OWNER");
 
         let len = symbols.len();
         assert!(rates.len() == len, "BAD_RATES_LENGTH");
@@ -151,7 +151,9 @@ mod tests {
 
     #[test]
     fn test_transfer_ownership() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdReferenceBasic::new();
 
@@ -166,7 +168,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "NOT_AN_OWNER")]
     fn test_transfer_ownership_fail() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdReferenceBasic::new();
 
@@ -262,7 +266,9 @@ mod tests {
 
     #[test]
     fn test_relay_and_get_refs() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context.clone());
         let mut contract = StdReferenceBasic::new();
 
@@ -280,7 +286,26 @@ mod tests {
     #[test]
     #[should_panic(expected = "NOT_AN_OWNER")]
     fn test_relay_fail_because_not_owner() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = alice();
+
+        testing_env!(context.clone());
+        let mut contract = StdReferenceBasic::new();
+
+        contract.relay(
+            vec!["BTC".into(), "ETH".into()],
+            vec![111 * E9, 222 * E9],
+            vec![333, 444],
+            vec![555, 666],
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "NOT_AN_OWNER")]
+    fn test_relay_fail_because_owner_has_changed() {
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context.clone());
         let mut contract = StdReferenceBasic::new();
 
@@ -297,7 +322,9 @@ mod tests {
 
     #[test]
     fn test_relay_and_get_reference_data() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context.clone());
         let mut contract = StdReferenceBasic::new();
 
@@ -328,7 +355,9 @@ mod tests {
 
     #[test]
     fn test_relay_and_get_reference_data_bulk() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context.clone());
         let mut contract = StdReferenceBasic::new();
 

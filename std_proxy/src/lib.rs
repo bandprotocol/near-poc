@@ -40,7 +40,7 @@ impl StdProxy {
     }
 
     pub fn transfer_ownership(&mut self, new_owner: AccountId) {
-        assert!(env::signer_account_id() == self.get_owner(), "NOT_AN_OWNER");
+        assert!(env::predecessor_account_id() == self.get_owner(), "NOT_AN_OWNER");
         env::log(format!("transfer ownership from {} to {}", self.owner, new_owner).as_bytes());
         self.owner = new_owner;
     }
@@ -50,7 +50,7 @@ impl StdProxy {
     }
 
     pub fn set_ref(&mut self, new_ref: AccountId) {
-        assert!(env::signer_account_id() == self.get_owner(), "NOT_AN_OWNER");
+        assert!(env::predecessor_account_id() == self.get_owner(), "NOT_AN_OWNER");
         env::log(format!("set ref from {} to {}", self.ref_, new_ref).as_bytes());
         self.ref_ = new_ref
     }
@@ -132,7 +132,9 @@ mod tests {
 
     #[test]
     fn test_transfer_ownership() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdProxy::new(std_basic());
 
@@ -147,7 +149,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "NOT_AN_OWNER")]
     fn test_transfer_ownership_fail() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdProxy::new(std_basic());
 
@@ -165,7 +169,9 @@ mod tests {
 
     #[test]
     fn test_set_ref() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdProxy::new(std_basic());
 
@@ -179,7 +185,9 @@ mod tests {
     #[test]
     #[should_panic(expected = "NOT_AN_OWNER")]
     fn test_set_ref_fail() {
-        let context = get_context();
+        let mut context = get_context();
+        context.predecessor_account_id = bob();
+
         testing_env!(context);
         let mut contract = StdProxy::new(std_basic());
 
