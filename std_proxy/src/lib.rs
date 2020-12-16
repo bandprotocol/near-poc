@@ -1,11 +1,8 @@
 use borsh::{BorshDeserialize, BorshSerialize};
-use near_sdk::{env, ext_contract, near_bindgen, AccountId, PromiseOrValue};
+use near_sdk::{env, ext_contract, near_bindgen, AccountId, Promise};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-// Prepaid gas for making a single simple call.
-const SINGLE_CALL_GAS: u64 = 200_000_000_000_000;
 
 #[ext_contract(ext)]
 pub trait StdRef {
@@ -59,16 +56,18 @@ impl StdProxy {
         &mut self,
         base: String,
         quote: String,
-    ) -> PromiseOrValue<Option<(u128, u64, u64)>> {
-        ext::get_reference_data(base, quote, &self.ref_, 0, SINGLE_CALL_GAS).into()
+    ) -> Promise {
+        let prepaid_gas = env::prepaid_gas();
+        ext::get_reference_data(base, quote, &self.ref_, 0, prepaid_gas / 2)
     }
 
     pub fn get_reference_data_bulk(
         &mut self,
         bases: Vec<String>,
         quotes: Vec<String>,
-    ) -> PromiseOrValue<Option<Vec<(u128, u64, u64)>>> {
-        ext::get_reference_data_bulk(bases, quotes, &self.ref_, 0, SINGLE_CALL_GAS).into()
+    ) -> Promise {
+        let prepaid_gas = env::prepaid_gas();
+        ext::get_reference_data_bulk(bases, quotes, &self.ref_, 0, prepaid_gas / 2)
     }
 }
 
