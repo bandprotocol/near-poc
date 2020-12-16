@@ -77,7 +77,7 @@ impl StdReferenceBasic {
     pub fn relay(
         &mut self,
         symbols: Vec<String>,
-        rates: Vec<u128>,
+        rates: Vec<String>,
         resolve_times: Vec<u64>,
         request_ids: Vec<u64>,
     ) {
@@ -89,7 +89,9 @@ impl StdReferenceBasic {
         assert!(request_ids.len() == len, "BAD_REQUEST_IDS_LENGTH");
 
         for (s, (r, (rt, rid))) in zip!(&symbols, &rates, &resolve_times, &request_ids) {
-            self.refs.insert(&s, &(r, rt, rid));
+            let rate_opt = r.parse::<u128>().ok();
+            assert!(rate_opt != None, format!("FAIL_TO_PARSE_RATE_{}_FOR_{}", r, s));
+            self.refs.insert(&s, &(rate_opt.unwrap(), rt, rid));
             env::log(format!("relay: {},{},{},{}", s, r, rt, rid).as_bytes());
         }
     }
@@ -274,7 +276,7 @@ mod tests {
 
         contract.relay(
             vec!["BTC".into(), "ETH".into()],
-            vec![111 * E9, 222 * E9],
+            vec!["111000000000".into(), "222000000000".into()],
             vec![333, 444],
             vec![555, 666],
         );
@@ -294,7 +296,7 @@ mod tests {
 
         contract.relay(
             vec!["BTC".into(), "ETH".into()],
-            vec![111 * E9, 222 * E9],
+            vec!["111000000000".into(),"222000000000".into()],
             vec![333, 444],
             vec![555, 666],
         );
@@ -314,7 +316,7 @@ mod tests {
 
         contract.relay(
             vec!["BTC".into(), "ETH".into()],
-            vec![111 * E9, 222 * E9],
+            vec!["111000000000".into(),"222000000000".into()],
             vec![333, 444],
             vec![555, 666],
         );
@@ -330,7 +332,7 @@ mod tests {
 
         contract.relay(
             vec!["BTC".into(), "ETH".into()],
-            vec![111 * E9, 222 * E9],
+            vec!["111000000000".into(), "222000000000".into()],
             vec![333, 444],
             vec![555, 666],
         );
@@ -363,7 +365,7 @@ mod tests {
 
         contract.relay(
             vec!["BTC".into(), "ETH".into()],
-            vec![111 * E9, 222 * E9],
+            vec!["111000000000".into(), "222000000000".into()],
             vec![333, 444],
             vec![555, 666],
         );
