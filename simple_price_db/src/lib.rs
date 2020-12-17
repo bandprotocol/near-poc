@@ -130,10 +130,10 @@ impl SimplePriceDB {
                 for (symbol, (rate, _, _)) in symbols.iter().zip(values.iter()) {
                     self.prices.insert(&symbol, &rate);
                 }
-                env::log(format!("Got values {:?}", values).as_bytes());
+                env::log(format!("Save rates {:?} to state", values).as_bytes());
             },
             None => {
-                env::log(format!("Got None").as_bytes());
+                env::log(format!("Got None from the oracle").as_bytes());
             }
         }
     }
