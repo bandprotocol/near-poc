@@ -8,22 +8,11 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 #[ext_contract(ext)]
 pub trait ExtContract {
     fn get_reference_data(&self, base: String, quote: String) -> Option<(u128, u64, u64)>;
-    fn get_reference_data_bulk(
-        &self,
-        bases: Vec<String>,
-        quotes: Vec<String>,
-    ) -> Option<Vec<(u128, u64, u64)>>;
     fn set_price(
         &self,
         symbol: String,
         #[callback]
         value_opt: Option<(u128, u64, u64)>,
-    );
-    fn set_price_multi(
-        &self,
-        symbols: Vec<String>,
-        #[callback]
-        values_opt: Vec<Option<(u128, u64, u64)>>,
     );
 }
 
@@ -71,35 +60,6 @@ impl SimplePriceDB {
         );
     }
 
-    pub fn save_price_multi(
-        &mut self,
-        bases: Vec<String>,
-        quotes: Vec<String>,
-    ) {
-        assert!(
-            bases.len() == quotes.len(),
-            format!("BASES_QUOTES_SIZE_IS_NOT_EQUAL:{}!={}",bases.len(),quotes.len())
-        );
-
-        let prepaid_gas = env::prepaid_gas();
-        let this = env::current_account_id();
-        let mut symbols = vec![String::from(""); bases.len()];
-        for (i, (base, quote)) in bases.iter().zip(quotes.iter()).enumerate() {
-            symbols[i] = format!("{}/{}", base, quote);
-        }
-
-        let remaining_gas = prepaid_gas - env::used_gas();
-        ext::get_reference_data_bulk(
-            bases,
-            quotes,
-            &self.oracle,
-            0,
-            2 * remaining_gas / 5
-        ).then(
-            ext::set_price_multi(symbols, &this, 0, 2 * remaining_gas / 5)
-        );
-    }
-
     #[result_serializer(borsh)]
     pub fn set_price(
         &mut self,
@@ -111,26 +71,6 @@ impl SimplePriceDB {
             Some((rate, _, _)) => {
                 env::log(format!("Save rate {:?} to state", &rate).as_bytes());
                 self.prices.insert(&symbol, &rate);
-            },
-            None => {
-                env::log(format!("Got None from the oracle").as_bytes());
-            }
-        }
-    }
-
-    #[result_serializer(borsh)]
-    pub fn set_price_multi(
-        &mut self,
-        symbols: Vec<String>,
-        #[callback]
-        values_opt: Option<Vec<(u128, u64, u64)>>,
-    ) {
-        match values_opt {
-            Some(values) => {
-                for (symbol, (rate, _, _)) in symbols.iter().zip(values.iter()) {
-                    self.prices.insert(&symbol, &rate);
-                }
-                env::log(format!("Save rates {:?} to state", values).as_bytes());
             },
             None => {
                 env::log(format!("Got None from the oracle").as_bytes());
