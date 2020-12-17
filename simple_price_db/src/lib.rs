@@ -5,14 +5,29 @@ use near_sdk::{env, ext_contract, near_bindgen, AccountId};
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-#[ext_contract(ext)]
-pub trait ExtContract {
+#[ext_contract(std_proxy)]
+pub trait StdProxy {
     fn get_reference_data(&self, base: String, quote: String) -> Option<(u128, u64, u64)>;
-    fn set_price(
+    fn get_reference_data_bulk(
+        &self,
+        bases: Vec<String>,
+        quotes: Vec<String>,
+    ) -> Option<Vec<(u128, u64, u64)>>;
+}
+
+#[ext_contract(self_callback)]
+pub trait SelfCallback {
+    fn callback_set_single(
         &self,
         symbol: String,
         #[callback]
         value_opt: Option<(u128, u64, u64)>,
+    );
+    fn callback_set_multiple(
+        &self,
+        symbols: Vec<String>,
+        #[callback]
+        values_opt: Vec<Option<(u128, u64, u64)>>,
     );
 }
 
@@ -44,24 +59,53 @@ impl SimplePriceDB {
         self.prices.get(&symbol)
     }
 
-    pub fn save_price(&self, base: String, quote: String) {
+    pub fn set_single(&self, base: String, quote: String) {
         let prepaid_gas = env::prepaid_gas();
         let this = env::current_account_id();
 
         let remaining_gas = prepaid_gas - env::used_gas();
-        ext::get_reference_data(
+        std_proxy::get_reference_data(
             base.clone(),
             quote.clone(),
             &self.oracle,
             0,
             2 * remaining_gas / 5
         ).then(
-            ext::set_price(format!("{}/{}",base, quote), &this, 0, 2 * remaining_gas / 5)
+            self_callback::callback_set_single(format!("{}/{}",base, quote), &this, 0, 2 * remaining_gas / 5)
+        );
+    }
+
+    pub fn set_multiple(
+        &mut self,
+        bases: Vec<String>,
+        quotes: Vec<String>,
+    ) {
+        assert!(
+            bases.len() == quotes.len(),
+            format!("BASES_QUOTES_SIZE_IS_NOT_EQUAL:{}!={}",bases.len(),quotes.len())
+        );
+
+        let prepaid_gas = env::prepaid_gas();
+        let this = env::current_account_id();
+        let mut symbols = vec![String::from(""); bases.len()];
+        for (i, (base, quote)) in bases.iter().zip(quotes.iter()).enumerate() {
+            symbols[i] = format!("{}/{}", base, quote);
+        }
+
+        let remaining_gas = prepaid_gas - env::used_gas();
+        std_proxy::get_reference_data_bulk(
+            bases,
+            quotes,
+            &self.oracle,
+            0,
+            2 * remaining_gas / 5
+        ).then(
+            self_callback::callback_set_multiple(symbols, &this, 0, 2 * remaining_gas / 5)
         );
     }
 
     #[result_serializer(borsh)]
-    pub fn set_price(
+    pub fn callback_set_single(
         &mut self,
         symbol: String,
         #[callback]
@@ -71,6 +115,26 @@ impl SimplePriceDB {
             Some((rate, _, _)) => {
                 env::log(format!("Save rate {:?} to state", &rate).as_bytes());
                 self.prices.insert(&symbol, &rate);
+            },
+            None => {
+                env::log(format!("Got None from the oracle").as_bytes());
+            }
+        }
+    }
+
+    #[result_serializer(borsh)]
+    pub fn callback_set_multiple(
+        &mut self,
+        symbols: Vec<String>,
+        #[callback]
+        values_opt: Option<Vec<(u128, u64, u64)>>,
+    ) {
+        match values_opt {
+            Some(values) => {
+                for (symbol, (rate, _, _)) in symbols.iter().zip(values.iter()) {
+                    self.prices.insert(&symbol, &rate);
+                }
+                env::log(format!("Save rates {:?} to state", values).as_bytes());
             },
             None => {
                 env::log(format!("Got None from the oracle").as_bytes());
