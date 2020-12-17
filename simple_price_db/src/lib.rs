@@ -1,16 +1,9 @@
 use borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::UnorderedMap;
-use near_sdk::{env, ext_contract, near_bindgen, AccountId, PromiseOrValue};
+use near_sdk::{env, ext_contract, near_bindgen, AccountId};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-macro_rules! zip {
-    ($x: expr) => ($x);
-    ($x: expr, $($y: expr), +) => (
-        $x.iter().map(|v| v.clone()).zip(zip!($($y.clone()), +))
-    )
-}
 
 #[ext_contract(ext)]
 pub trait ExtContract {
@@ -65,14 +58,16 @@ impl SimplePriceDB {
     pub fn save_price(&self, base: String, quote: String) {
         let prepaid_gas = env::prepaid_gas();
         let this = env::current_account_id();
+
+        let remaining_gas = prepaid_gas - env::used_gas();
         ext::get_reference_data(
             base.clone(),
             quote.clone(),
             &self.oracle,
             0,
-            prepaid_gas / 4
+            2 * remaining_gas / 5
         ).then(
-            ext::set_price(format!("{}/{}",base, quote), &this, 0, prepaid_gas / 4)
+            ext::set_price(format!("{}/{}",base, quote), &this, 0, 2 * remaining_gas / 5)
         );
     }
 
@@ -92,14 +87,16 @@ impl SimplePriceDB {
         for (i, (base, quote)) in bases.iter().zip(quotes.iter()).enumerate() {
             symbols[i] = format!("{}/{}", base, quote);
         }
+
+        let remaining_gas = prepaid_gas - env::used_gas();
         ext::get_reference_data_bulk(
-            bases.clone(),
-            quotes.clone(),
+            bases,
+            quotes,
             &self.oracle,
             0,
-            prepaid_gas / 4
+            2 * remaining_gas / 5
         ).then(
-            ext::set_price_multi(symbols, &this, 0, prepaid_gas / 4)
+            ext::set_price_multi(symbols, &this, 0, 2 * remaining_gas / 5)
         );
     }
 
@@ -130,7 +127,7 @@ impl SimplePriceDB {
     ) {
         match values_opt {
             Some(values) => {
-                for (symbol, (rate, _, _)) in zip!(&symbols, &values) {
+                for (symbol, (rate, _, _)) in symbols.iter().zip(values.iter()) {
                     self.prices.insert(&symbol, &rate);
                 }
                 env::log(format!("Got values {:?}", values).as_bytes());
@@ -140,7 +137,6 @@ impl SimplePriceDB {
             }
         }
     }
-
 }
 
 // use the attribute below for unit tests

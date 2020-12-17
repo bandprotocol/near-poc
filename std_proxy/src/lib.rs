@@ -57,8 +57,7 @@ impl StdProxy {
         base: String,
         quote: String,
     ) -> Promise {
-        let prepaid_gas = env::prepaid_gas();
-        ext::get_reference_data(base, quote, &self.ref_, 0, prepaid_gas / 2)
+        ext::get_reference_data(base, quote, &self.ref_, 0, 9 * env::prepaid_gas() / 10)
     }
 
     pub fn get_reference_data_bulk(
@@ -66,8 +65,7 @@ impl StdProxy {
         bases: Vec<String>,
         quotes: Vec<String>,
     ) -> Promise {
-        let prepaid_gas = env::prepaid_gas();
-        ext::get_reference_data_bulk(bases, quotes, &self.ref_, 0, prepaid_gas / 2)
+        ext::get_reference_data_bulk(bases, quotes, &self.ref_, 0, 9 * env::prepaid_gas() / 10)
     }
 }
 
