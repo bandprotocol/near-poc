@@ -27,13 +27,13 @@
 #### View Functions
 
 - get_oracle : Get the current oracle address
-
+  
   ```
-  near view simple_price_db.mumu.testnet get_price --args  '{"symbol": "BTC/USD"}'
+  near view simple_price_db.mumu.testnet get_oracle --args  '{}'
   ```
 
 - get_price : Get price of a specific base/quote
 
   ```
-  near view simple_price_db.mumu.testnet get_oracle --args  '{}'
+  near view simple_price_db.mumu.testnet get_price --args  '{"symbol": "BTC/USD"}'
   ```
