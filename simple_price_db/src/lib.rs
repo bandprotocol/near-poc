@@ -34,6 +34,7 @@ pub trait SelfCallback {
 #[near_bindgen]
 #[derive(Default, BorshDeserialize, BorshSerialize)]
 pub struct SimplePriceDB {
+    pub owner: AccountId,
     pub oracle: AccountId,
     pub prices: UnorderedMap<String, u128>,
 }
@@ -41,9 +42,13 @@ pub struct SimplePriceDB {
 #[near_bindgen]
 impl SimplePriceDB {
     #[init]
-    pub fn new(oracle: AccountId) -> Self {
+    pub fn new(oracle: AccountId, owner: AccountId) -> Self {
         assert!(!env::state_exists(), "ALREADY_INITIALIZED");
-        Self { oracle, prices: UnorderedMap::new(b"prices".to_vec()) }
+        Self { owner, oracle, prices: UnorderedMap::new(b"prices".to_vec()) }
+    }
+
+    pub fn get_owner(&self) -> AccountId {
+        self.owner.clone()
     }
 
     pub fn get_oracle(&self) -> AccountId {
@@ -51,6 +56,7 @@ impl SimplePriceDB {
     }
 
     pub fn set_oracle(&mut self, new_oracle: AccountId) {
+        assert!(env::predecessor_account_id() == self.get_owner(), "NOT_AN_OWNER");
         env::log(format!("set oracle address from {} to {}", self.oracle, new_oracle).as_bytes());
         self.oracle = new_oracle
     }
@@ -166,6 +172,10 @@ mod tests {
         "std_proxy.near".to_string()
     }
 
+    fn another_oracle() -> AccountId {
+        "another_oracle.near".to_string()
+    }
+
     fn get_context() -> VMContext {
         VMContext {
             current_account_id: alice(),
@@ -191,12 +201,35 @@ mod tests {
     fn test_create_new_contract() {
         let context = get_context();
         testing_env!(context);
-        let contract = SimplePriceDB::new(std_proxy());
+        let contract = SimplePriceDB::new(std_proxy(), alice());
 
         // check state
         assert_eq!(std_proxy(), contract.oracle);
+        assert_eq!(alice(), contract.owner);
 
         // check owner using view function
         assert_eq!(std_proxy(), contract.get_oracle());
+        assert_eq!(alice(), contract.get_owner());
     }
+
+    #[test]
+    #[should_panic(expected = "NOT_AN_OWNER")]
+    fn test_set_oracle_fail() {
+        let context = get_context();
+        testing_env!(context);
+        let mut contract = SimplePriceDB::new(std_proxy(), alice());
+
+        contract.set_oracle(another_oracle())
+    }
+
+    #[test]
+    fn test_set_oracle_ok() {
+        let mut context = get_context();
+        context.predecessor_account_id = alice();
+        testing_env!(context);
+        let mut contract = SimplePriceDB::new(std_proxy(), alice());
+
+        contract.set_oracle(another_oracle())
+    }
+
 }
